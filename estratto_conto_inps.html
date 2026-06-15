@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estratto Conto INPS – Visualizzatore</title>
+<style>
+  /* ── GENERAL ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --inps-blue: #003d7a;
+    --inps-light: #1a6bbf;
+    --inps-accent: #e8f0fb;
+    --section-border: #c5d9f2;
+    --text: #1a1a2e;
+    --muted: #5a6a82;
+    --green: #1a7a4a;
+    --green-bg: #eaf7f0;
+    --red: #a02020;
+    --red-bg: #fdf0f0;
+    --shadow: 0 2px 12px rgba(0,61,122,0.10);
+  }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #e8f0fb 0%, #f5f8ff 60%, #ddeeff 100%);
+    min-height: 100vh;
+    color: var(--text);
+  }
+
+  /* ── UPLOAD SCREEN ── */
+  #upload-screen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 2rem;
+  }
+  .upload-card {
+    background: white; border-radius: 20px; padding: 3rem 3.5rem;
+    box-shadow: var(--shadow); max-width: 520px; width: 100%; text-align: center;
+  }
+  .upload-card .logo {
+    display: flex; align-items: center; justify-content: center; gap: .6rem;
+    margin-bottom: 1.5rem;
+  }
+  .upload-card .logo-box {
+    background: var(--inps-blue); color: white; font-weight: 900; font-size: 1.05rem;
+    padding: .35rem .7rem; border-radius: 8px; letter-spacing: 2px;
+  }
+  .upload-card h1 { font-size: 1.5rem; color: var(--inps-blue); margin-bottom: .4rem; }
+  .upload-card p { color: var(--muted); margin-bottom: 2rem; font-size: .95rem; }
+  .drop-zone {
+    border: 2.5px dashed var(--inps-light); border-radius: 14px;
+    padding: 2.5rem 1.5rem; cursor: pointer; transition: .2s;
+    background: var(--inps-accent);
+  }
+  .drop-zone:hover, .drop-zone.over { background: #d0e4ff; border-color: var(--inps-blue); }
+  .drop-zone svg { display: block; margin: 0 auto 1rem; }
+  .drop-zone span { color: var(--inps-blue); font-weight: 600; font-size: 1rem; display: block; }
+  .drop-zone small { color: var(--muted); font-size: .82rem; }
+  #file-input { display: none; }
+  .privacy-note {
+    margin-top: 1.8rem; font-size: .8rem; color: var(--muted);
+    background: #f5f8ff; border-radius: 8px; padding: .8rem 1rem;
+    border-left: 3px solid var(--inps-light); text-align: left;
+  }
+  .privacy-note strong { color: var(--inps-blue); }
+
+  /* ── REPORT ── */
+  #report { display: none; padding: 1.5rem 1rem 3rem; max-width: 960px; margin: 0 auto; }
+
+  .top-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 1.5rem; flex-wrap: wrap; gap: .8rem;
+  }
+  .top-bar .back-btn {
+    background: white; border: 1.5px solid var(--section-border); color: var(--inps-blue);
+    border-radius: 8px; padding: .45rem 1rem; font-size: .88rem; cursor: pointer;
+    font-weight: 600; transition: .15s;
+  }
+  .top-bar .back-btn:hover { background: var(--inps-accent); }
+  .top-bar .print-btn {
+    background: var(--inps-blue); color: white; border: none;
+    border-radius: 8px; padding: .55rem 1.4rem; font-size: .92rem; cursor: pointer;
+    font-weight: 600; box-shadow: 0 2px 8px rgba(0,61,122,.2); transition: .15s;
+  }
+  .top-bar .print-btn:hover { background: var(--inps-light); }
+
+  /* header card */
+  .header-card {
+    background: linear-gradient(135deg, var(--inps-blue) 0%, var(--inps-light) 100%);
+    color: white; border-radius: 16px; padding: 2rem 2.2rem;
+    margin-bottom: 1.5rem; box-shadow: var(--shadow);
+    display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;
+  }
+  .header-card .inps-brand { font-size: .8rem; letter-spacing: 3px; opacity: .8; font-weight: 700; }
+  .header-card h2 { font-size: 1.55rem; font-weight: 800; margin: .3rem 0; }
+  .header-card .cf { font-family: monospace; font-size: 1.05rem; opacity: .9; }
+  .header-card .meta { text-align: right; font-size: .85rem; opacity: .85; }
+  .header-card .meta strong { display: block; font-size: 1rem; opacity: 1; }
+  .header-card .badge {
+    display: inline-block; background: rgba(255,255,255,.2); border-radius: 6px;
+    padding: .15rem .6rem; font-size: .78rem; margin-top: .4rem;
+  }
+
+  /* address row */
+  .address-row {
+    background: white; border-radius: 12px; padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem; box-shadow: var(--shadow);
+    display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center;
+  }
+  .address-row .field { }
+  .address-row .field label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; }
+  .address-row .field span { font-size: .92rem; font-weight: 600; color: var(--text); }
+
+  /* section */
+  .section {
+    background: white; border-radius: 14px; margin-bottom: 1.5rem;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .section-header {
+    background: var(--inps-blue); color: white;
+    padding: .9rem 1.5rem; display: flex; align-items: center; gap: .7rem;
+  }
+  .section-header .icon { font-size: 1.1rem; }
+  .section-header h3 { font-size: 1rem; font-weight: 700; }
+  .section-header .count {
+    margin-left: auto; background: rgba(255,255,255,.25);
+    border-radius: 20px; padding: .1rem .65rem; font-size: .78rem; font-weight: 700;
+  }
+  .section-body { padding: 1.2rem 1.5rem; }
+
+  /* table */
+  table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+  thead tr { background: var(--inps-accent); }
+  thead th {
+    padding: .6rem .75rem; text-align: left; font-weight: 700;
+    color: var(--inps-blue); border-bottom: 2px solid var(--section-border);
+    white-space: nowrap; font-size: .78rem; text-transform: uppercase; letter-spacing: .4px;
+  }
+  tbody tr { border-bottom: 1px solid #eef2f8; transition: background .1s; }
+  tbody tr:hover { background: #f7faff; }
+  tbody tr:last-child { border-bottom: none; }
+  td { padding: .55rem .75rem; vertical-align: middle; }
+  .tag {
+    display: inline-block; border-radius: 20px; padding: .15rem .55rem;
+    font-size: .74rem; font-weight: 600; white-space: nowrap;
+  }
+  .tag-blue { background: var(--inps-accent); color: var(--inps-blue); }
+  .tag-green { background: var(--green-bg); color: var(--green); }
+  .tag-gray { background: #f0f0f5; color: #555; }
+  .tag-orange { background: #fff3e0; color: #b45000; }
+  .num { text-align: right; font-family: monospace; font-size: .85rem; font-weight: 600; }
+
+  /* montante table special */
+  .total-row td { background: var(--inps-accent); font-weight: 700; }
+
+  /* avvertenze */
+  .avvertenza-list { list-style: none; }
+  .avvertenza-list li {
+    padding: .6rem .8rem .6rem 2rem; position: relative;
+    font-size: .82rem; color: var(--muted); border-bottom: 1px solid #f0f0f5;
+    line-height: 1.5;
+  }
+  .avvertenza-list li::before {
+    content: 'ℹ'; position: absolute; left: .4rem;
+    color: var(--inps-light); font-size: .9rem;
+  }
+  .avvertenza-list li:last-child { border-bottom: none; }
+
+  /* segnalazioni */
+  .segnalazione {
+    background: #fffbe6; border-left: 4px solid #f0b800;
+    border-radius: 0 8px 8px 0; padding: .7rem 1rem;
+    margin-bottom: .6rem; font-size: .84rem; color: #5a4500;
+  }
+
+  /* info note */
+  .info-note {
+    background: var(--inps-accent); border-radius: 8px;
+    padding: .8rem 1rem; font-size: .8rem; color: var(--inps-blue);
+    margin-bottom: 1rem; line-height: 1.6;
+  }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: white !important; }
+    #upload-screen { display: none !important; }
+    #report { display: block !important; padding: 0; }
+    .top-bar, .back-btn, .print-btn { display: none !important; }
+    .section { box-shadow: none; border: 1px solid #ddd; page-break-inside: avoid; }
+    .header-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .section-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    thead tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    table { page-break-inside: auto; }
+    tr { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ UPLOAD SCREEN ══ -->
+<div id="upload-screen">
+  <div class="upload-card">
+    <div class="logo">
+      <div class="logo-box">INPS</div>
+      <span style="font-size:1.1rem;font-weight:700;color:var(--inps-blue)">Estratto Conto</span>
+    </div>
+    <h1>Visualizzatore XML</h1>
+    <p>Carica il file XML dell'estratto conto INPS per visualizzarlo in modo chiaro e stamparlo come PDF.</p>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <rect width="48" height="48" rx="12" fill="#e8f0fb"/>
+        <path d="M24 14v14M24 14l-6 6M24 14l6 6" stroke="#1a6bbf" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M12 32v2a2 2 0 002 2h20a2 2 0 002-2v-2" stroke="#1a6bbf" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <span>Clicca o trascina il file XML qui</span>
+      <small>Il file viene elaborato solo nel tuo browser — nessun dato viene inviato online</small>
+    </div>
+    <input type="file" id="file-input" accept=".xml">
+    <div class="privacy-note">
+      🔒 <strong>100% locale:</strong> questo strumento funziona completamente offline nel tuo browser. Nessun dato personale viene trasmesso a server esterni.
+    </div>
+  </div>
+</div>
+
+<!-- ══ REPORT ══ -->
+<div id="report">
+  <div class="top-bar">
+    <button class="back-btn" onclick="goBack()">← Carica altro file</button>
+    <button class="print-btn" onclick="window.print()">🖨 Stampa / Salva PDF</button>
+  </div>
+  <div id="report-content"></div>
+</div>
+
+<script>
+// ── DRAG & DROP ──
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); handleFile(e.dataTransfer.files[0]); });
+document.getElementById('file-input').addEventListener('change', e => handleFile(e.target.files[0]));
+
+function goBack() {
+  document.getElementById('report').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('file-input').value = '';
+}
+
+function handleFile(file) {
+  if (!file || !file.name.endsWith('.xml')) { alert('Seleziona un file .xml'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(e.target.result, 'text/xml');
+      const err = xml.querySelector('parsererror');
+      if (err) throw new Error('XML non valido');
+      renderReport(xml);
+    } catch(ex) { alert('Errore nel leggere il file XML: ' + ex.message); }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ── HELPERS ──
+function txt(node, tag) {
+  const el = node.querySelector(tag);
+  return el ? el.textContent.trim() : '';
+}
+function formatDate(node) {
+  const g = txt(node,'Giorno'), m = txt(node,'Mese'), a = txt(node,'Anno');
+  if (!a) return '—';
+  if (!g && !m) return a;
+  return `${g.padStart(2,'0')}/${m.padStart(2,'0')}/${a}`;
+}
+function formatDateRange(fromNode, toNode) {
+  return formatDate(fromNode) + ' → ' + formatDate(toNode);
+}
+function eur(val) {
+  if (!val || val === '') return '—';
+  const n = parseFloat(val.replace('.','').replace(',','.'));
+  if (isNaN(n)) return val;
+  return n.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
+}
+function lire(val) {
+  if (!val || val === '') return '—';
+  const n = parseInt(val);
+  if (isNaN(n)) return val;
+  return n.toLocaleString('it-IT') + ' £';
+}
+
+// ── RENDER ──
+function renderReport(xml) {
+  const out = [];
+
+  // ── ANAGRAFICA ──
+  const ana = xml.querySelector('DatiAnagrafici');
+  const agg = xml.querySelector('Aggiornamento');
+  const cognome = txt(ana,'Cognome'), nome = txt(ana,'Nome');
+  const cf = txt(ana,'CodiceFiscale');
+  const natoIl = formatDate(ana.querySelector('DataNascita'));
+  const luogo = txt(ana,'LuogoNascita'), prov = txt(ana,'ProvinciaNascita');
+  const sesso = txt(ana,'Sesso');
+  const emissione = formatDate(agg.querySelector('DataEmissioneEstratto'));
+  const esito = txt(agg,'EsitoElaborazione');
+  const via = txt(ana.querySelector('Indirizzo'),'Via');
+  const comune = txt(ana.querySelector('Indirizzo'),'Comune');
+  const cap = txt(ana.querySelector('Indirizzo'),'Cap');
+
+  out.push(`
+    <div class="header-card">
+      <div>
+        <div class="inps-brand">INPS • ESTRATTO CONTO PREVIDENZIALE</div>
+        <h2>${cognome} ${nome}</h2>
+        <div class="cf">C.F.: ${cf}</div>
+      </div>
+      <div class="meta">
+        <label style="font-size:.75rem;opacity:.8">Data emissione</label>
+        <strong>${emissione}</strong>
+        <div class="badge">✓ ${esito}</div>
+      </div>
+    </div>
+    <div class="address-row">
+      <div class="field"><label>Data di nascita</label><span>${natoIl}</span></div>
+      <div class="field"><label>Luogo di nascita</label><span>${luogo} (${prov})</span></div>
+      <div class="field"><label>Sesso</label><span>${sesso}</span></div>
+      <div class="field"><label>Indirizzo</label><span>${via}, ${cap} ${comune}</span></div>
+    </div>
+  `);
+
+  // ── REGIME GENERALE ──
+  const rg = xml.querySelector('RegimeGenerale');
+  if (rg) {
+    const righe = rg.querySelectorAll('RigaContributi');
+    if (righe.length > 0) {
+      const rows = Array.from(righe).map(r => {
+        const dal = r.querySelector('Dal'), al = r.querySelector('Al');
+        const tipo = txt(r,'TipoContribuzione');
+        const contributo = txt(r,'TipoContributo');
+        const diritto = txt(r,'ContributiUtiliDiritto');
+        const calcolo = txt(r,'ContributiUtiliCalcolo');
+        const retEur = eur(txt(r,'RetribuzioneEuro'));
+        const azienda = txt(r,'Descrizione');
+        return `<tr>
+          <td>${formatDate(dal)} → ${formatDate(al)}</td>
+          <td><span class="tag tag-blue">${tipo}</span></td>
+          <td><span class="tag tag-gray">${contributo}</span></td>
+          <td class="num">${diritto}</td>
+          <td class="num">${calcolo}</td>
+          <td class="num">${retEur}</td>
+          <td style="font-size:.8rem">${azienda || '—'}</td>
+        </tr>`;
+      }).join('');
+
+      out.push(`<div class="section">
+        <div class="section-header">
+          <span class="icon">🏢</span>
+          <h3>Regime Generale – Contributi Lavoro Dipendente</h3>
+          <span class="count">${righe.length} periodi</span>
+        </div>
+        <div class="section-body">
+          <table>
+            <thead><tr>
+              <th>Periodo</th><th>Tipo contribuzione</th><th>Tipo contributo</th>
+              <th style="text-align:right">Sett. diritto</th>
+              <th style="text-align:right">Sett. calcolo</th>
+              <th style="text-align:right">Retribuzione</th>
+              <th>Azienda</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`);
+    }
+
+    // Segnalazioni
+    const segnalazioni = rg.querySelectorAll('SegnalazioniPersonalizzate');
+    if (segnalazioni.length > 0) {
+      const items = Array.from(segnalazioni).map(s => `<div class="segnalazione">⚠ ${s.textContent.trim()}</div>`).join('');
+      out.push(`<div class="section">
+        <div class="section-header"><span class="icon">⚠️</span><h3>Segnalazioni Personalizzate (Regime Generale)</h3></div>
+        <div class="section-body">${items}</div>
+      </div>`);
+    }
+  }
+
+  // ── REGIME PARASUBORDINATI ──
+  const rp = xml.querySelector('RegimeParasubordinati');
+  if (rp) {
+    // Contributi parasubordinati
+    const rpRighe = rp.querySelectorAll('RigaParasubordinati');
+    if (rpRighe.length > 0) {
+      const rows = Array.from(rpRighe).map(r => {
+        const anno = txt(r,'AnnoSolare');
+        const reddito = eur(txt(r,'RedditoImponibile'));
+        const committente = txt(r,'DescrizioneCommittente') || '—';
+        const tipoDesc = txt(r.querySelector('TipoAttivitaOContribuzione'),'Descrizione').trim() || txt(r,'TipoAttivitaOContribuzione') || '—';
+        const contributi = eur(txt(r,'ContributiVersati'));
+        const aliquota = txt(r,'AliquotaContributiva');
+        return `<tr>
+          <td style="font-weight:700">${anno}</td>
+          <td class="num">${reddito}</td>
+          <td style="font-size:.8rem">${committente}</td>
+          <td><span class="tag tag-green">${tipoDesc}</span></td>
+          <td class="num">${contributi}</td>
+          <td class="num">${aliquota ? aliquota+'%' : '—'}</td>
+        </tr>`;
+      }).join('');
+
+      out.push(`<div class="section">
+        <div class="section-header">
+          <span class="icon">📋</span>
+          <h3>Gestione Separata – Contributi Parasubordinati</h3>
+          <span class="count">${rpRighe.length} righe</span>
+        </div>
+        <div class="section-body">
+          <table>
+            <thead><tr>
+              <th>Anno</th>
+              <th style="text-align:right">Reddito imponibile</th>
+              <th>Committente</th>
+              <th>Tipo attività</th>
+              <th style="text-align:right">Contributi versati</th>
+              <th style="text-align:right">Aliquota</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`);
+    }
+
+    // Montante
+    const montRighe = rp.querySelectorAll('RigaMontanteParasubordinati');
+    if (montRighe.length > 0) {
+      const infoGen = txt(rp.querySelector('InfoGeneraliMontanteParasubordinati') ? rp : rp, 'InfoGeneraliMontanteParasubordinati');
+      const infoCalc = txt(rp.querySelector('InfoCalcoloContributivo') ? rp : rp, 'InfoCalcoloContributivo');
+
+      const rows = Array.from(montRighe).map(r => {
+        const anno = txt(r,'Anno');
+        const tipo = txt(r,'TipoAttivitaOContribuzione') || '';
+        const reddito = txt(r,'RedditoImponibile');
+        const mesi = txt(r,'Mesi');
+        const contributi = txt(r,'Contributi');
+        const montante = txt(r,'MontanteContributivo');
+        const isTot = tipo.toLowerCase().includes('totale');
+        const cls = isTot ? ' class="total-row"' : '';
+        return `<tr${cls}>
+          <td style="font-weight:700">${anno}</td>
+          <td><span class="tag ${isTot ? 'tag-orange' : 'tag-gray'}">${tipo || '(rivalutazione)'}</span></td>
+          <td class="num">${reddito ? eur(reddito) : '—'}</td>
+          <td class="num">${mesi || '—'}</td>
+          <td class="num">${contributi ? eur(contributi) : '—'}</td>
+          <td class="num" style="font-weight:700;color:var(--inps-blue)">${montante ? eur(montante) : '—'}</td>
+        </tr>`;
+      }).join('');
+
+      let infoHtml = '';
+      if (infoGen) infoHtml += `<div class="info-note" style="margin-bottom:.8rem">${infoGen}</div>`;
+
+      out.push(`<div class="section">
+        <div class="section-header">
+          <span class="icon">📈</span>
+          <h3>Montante Contributivo – Gestione Separata</h3>
+          <span class="count">${montRighe.length} anni</span>
+        </div>
+        <div class="section-body">
+          ${infoHtml}
+          <table>
+            <thead><tr>
+              <th>Anno</th><th>Tipo</th>
+              <th style="text-align:right">Reddito imponibile</th>
+              <th style="text-align:right">Mesi</th>
+              <th style="text-align:right">Contributi anno</th>
+              <th style="text-align:right">Montante accumulato</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          ${infoCalc ? `<div class="info-note" style="margin-top:1rem">${infoCalc}</div>` : ''}
+        </div>
+      </div>`);
+    }
+
+    // Segnalazioni parasubordinati
+    const segnRP = rp.querySelectorAll('SegnalazioniPersonalizzate');
+    if (segnRP.length > 0) {
+      const items = Array.from(segnRP).map(s => `<div class="segnalazione">⚠ ${s.textContent.trim()}</div>`).join('');
+      out.push(`<div class="section">
+        <div class="section-header"><span class="icon">⚠️</span><h3>Segnalazioni – Gestione Separata</h3></div>
+        <div class="section-body">${items}</div>
+      </div>`);
+    }
+  }
+
+  // ── GESTIONE PUBBLICA ──
+  const gp = xml.querySelector('GestionePubblica');
+  if (gp) {
+    const gpRighe = gp.querySelectorAll('RigaContributiGestionePubblica');
+    if (gpRighe.length > 0) {
+      const rows = Array.from(gpRighe).map(r => {
+        const dal = txt(r,'Dal'), al = txt(r,'Al');
+        const gestione = txt(r,'GestioneOFondo');
+        const tipoCont = txt(r,'TipoDiContribuzione');
+        const anniD = txt(r,'AnniContribUtiliDiritto');
+        const mesiD = txt(r,'MesiContribUtiliDiritto');
+        const ggD = txt(r,'GiorniContribUtiliDiritto');
+        const anniM = txt(r,'AnniContribUtiliMisura');
+        const mesiM = txt(r,'MesiContribUtiliMisura');
+        const retEur = txt(r,'RetribuzioneEuro');
+        const ente = txt(r,'Descrizione');
+        const periodoD = [anniD!=='0'?anniD+'a':'', mesiD!=='0'?mesiD+'m':'', ggD!=='0'&&ggD!=='0.00'?ggD+'g':''].filter(Boolean).join(' ') || '0';
+        const periodoM = [anniM!=='0'?anniM+'a':'', mesiM!=='0'?mesiM+'m':''].filter(Boolean).join(' ') || '0';
+        return `<tr>
+          <td style="white-space:nowrap">${dal} → ${al}</td>
+          <td style="font-size:.78rem">${gestione}</td>
+          <td><span class="tag tag-blue">${tipoCont}</span></td>
+          <td class="num">${periodoD}</td>
+          <td class="num">${periodoM}</td>
+          <td class="num">${retEur ? retEur+' €' : '—'}</td>
+          <td style="font-size:.78rem">${ente || '—'}</td>
+        </tr>`;
+      }).join('');
+
+      const gpAgg = txt(gp.querySelector('AggiornamentoGP'),'DataEmissioneEstrattoGP');
+      out.push(`<div class="section">
+        <div class="section-header">
+          <span class="icon">🏛</span>
+          <h3>Gestione Pubblica – Cassa Enti Locali</h3>
+          <span class="count">${gpRighe.length} periodi${gpAgg ? ' · agg. '+gpAgg : ''}</span>
+        </div>
+        <div class="section-body">
+          <table>
+            <thead><tr>
+              <th>Periodo</th>
+              <th>Gestione / Fondo</th>
+              <th>Tipo contratto</th>
+              <th style="text-align:right">Utili diritto</th>
+              <th style="text-align:right">Utili misura</th>
+              <th style="text-align:right">Retribuzione</th>
+              <th>Amministrazione</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`);
+    }
+
+    // Avvertenze GP
+    const avvGP = gp.querySelectorAll('Avvertenze');
+    if (avvGP.length > 0) {
+      const items = Array.from(avvGP).map(a => `<li>${a.textContent.trim()}</li>`).join('');
+      out.push(`<div class="section">
+        <div class="section-header" style="background:#5a6a82"><span class="icon">📌</span><h3>Note e Avvertenze</h3></div>
+        <div class="section-body"><ul class="avvertenza-list">${items}</ul></div>
+      </div>`);
+    }
+  }
+
+  // Avvertenze generali (regime generale)
+  const avvRG = rg ? rg.querySelectorAll(':scope > Avvertenze') : [];
+  if (avvRG.length > 0 && !xml.querySelector('GestionePubblica Avvertenze')) {
+    const items = Array.from(avvRG).map(a => `<li>${a.textContent.trim()}</li>`).join('');
+    out.push(`<div class="section">
+      <div class="section-header" style="background:#5a6a82"><span class="icon">📌</span><h3>Note e Avvertenze</h3></div>
+      <div class="section-body"><ul class="avvertenza-list">${items}</ul></div>
+    </div>`);
+  }
+
+  document.getElementById('report-content').innerHTML = out.join('');
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('report').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>
